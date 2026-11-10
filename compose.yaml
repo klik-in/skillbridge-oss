@@ -1,0 +1,50 @@
+name: skillbridge
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: skillbridge
+      POSTGRES_DB: skillbridge
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U skillbridge -d skillbridge"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  api:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgres://skillbridge:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/skillbridge
+      BIND_ADDR: 0.0.0.0:3000
+      REMOTE_ASSISTANCE: ${REMOTE_ASSISTANCE:-false}
+    networks: [backend]
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--max-time", "3", "http://127.0.0.1:3000/api/ready"]
+      interval: 5s
+      timeout: 4s
+      retries: 12
+  web:
+    build: ./frontend
+    networks: [edge, backend]
+    ports:
+      - "127.0.0.1:${SKILLBRIDGE_PORT:-8080}:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/api/ready"]
+      interval: 3s
+      timeout: 4s
+      retries: 10
+networks:
+  edge:
+  backend:
+    internal: true
+volumes:
+  postgres_data:
