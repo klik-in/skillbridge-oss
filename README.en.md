@@ -33,6 +33,18 @@ docker compose down
 
 `docker compose down` preserves the PostgreSQL volume. The only published port is the local web UI. For native development and tests, see [CONTRIBUTING](CONTRIBUTING.md).
 
+## Account management
+
+An operator with server access can reset a password or change an account's status. Verify the account holder's identity before resetting their password. The CLI prompts twice for the new password with input hidden.
+
+```sh
+docker compose run --rm api reset-password student@example.test
+docker compose run --rm api disable-account student@example.test
+docker compose run --rm api enable-account student@example.test
+```
+
+Each command revokes all sessions for the account. Disabling blocks sign-in while retaining classroom records and conversations. Reenabling requires a fresh sign-in. A password reset preserves the account's active or disabled status. Every change also cancels any unused Veyon consent belonging to that student. End an already opened Veyon session in the Veyon window.
+
 ## Project references
 
 - [Architecture, roles and data boundaries](docs/architecture.md)

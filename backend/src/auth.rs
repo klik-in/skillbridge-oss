@@ -71,6 +71,12 @@ struct LoginAccount {
     #[sqlx(flatten)]
     account: Account,
     password_hash: String,
+    auth_version: i64,
+}
+
+struct VerifiedAccount {
+    account: Account,
+    auth_version: i64,
 }
 
 pub(crate) struct Session {
@@ -108,7 +114,7 @@ impl FromRequestParts<App> for Session {
         let digest = digest(token);
         let account = sqlx::query_as::<_, Account>(
             "SELECT a.id, a.name, a.role FROM accounts a JOIN sessions s ON s.account_id = a.id
-             WHERE s.digest = $1 AND s.expires_at > now()",
+             WHERE s.digest = $1 AND s.expires_at > now() AND NOT a.disabled",
         )
         .bind(&digest)
         .fetch_optional(&app.pool)
@@ -151,13 +157,14 @@ pub(crate) async fn login(
         .try_acquire_owned()
         .map_err(|_| ApiError::Throttled)?;
     let entry = sqlx::query_as::<_, LoginAccount>(
-        "SELECT id, name, role, password_hash FROM accounts WHERE email = $1",
+        "SELECT id, name, role, password_hash, auth_version
+         FROM accounts WHERE email = $1 AND NOT disabled",
     )
     .bind(email)
     .fetch_optional(&app.pool)
     .await?;
     let guard = app.login.clone();
-    let account = tokio::task::spawn_blocking(move || {
+    let verified = tokio::task::spawn_blocking(move || {
         let _slot = slot;
         let hash = entry
             .as_ref()
@@ -170,22 +177,46 @@ pub(crate) async fn login(
             return Err(ApiError::Unauthorized);
         }
         entry
-            .map(|record| record.account)
+            .map(|record| VerifiedAccount {
+                account: record.account,
+                auth_version: record.auth_version,
+            })
             .ok_or(ApiError::Unauthorized)
     })
     .await
     .map_err(|_| ApiError::Internal)??;
 
-    let token = random_secret();
+    issue_session(&app.pool, verified).await.map(Json)
+}
+
+async fn issue_session(
+    pool: &PgPool,
+    verified: VerifiedAccount,
+) -> Result<LoginResponse, ApiError> {
     sqlx::query("DELETE FROM sessions WHERE expires_at <= now()")
-        .execute(&app.pool)
+        .execute(pool)
         .await?;
+    let mut tx = pool.begin().await?;
+    // Serialize issuance with account changes after the expensive password check.
+    sqlx::query_scalar::<_, Uuid>(
+        "SELECT id FROM accounts WHERE id = $1 AND auth_version = $2 AND NOT disabled FOR SHARE",
+    )
+    .bind(verified.account.id)
+    .bind(verified.auth_version)
+    .fetch_optional(&mut *tx)
+    .await?
+    .ok_or(ApiError::Unauthorized)?;
+    let token = random_secret();
     sqlx::query("INSERT INTO sessions (digest, account_id) VALUES ($1, $2)")
         .bind(digest(&token))
-        .bind(account.id)
-        .execute(&app.pool)
+        .bind(verified.account.id)
+        .execute(&mut *tx)
         .await?;
-    Ok(Json(LoginResponse { token, account }))
+    tx.commit().await?;
+    Ok(LoginResponse {
+        token,
+        account: verified.account,
+    })
 }
 
 pub(crate) async fn logout(
@@ -197,4 +228,92 @@ pub(crate) async fn logout(
         .execute(&pool)
         .await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{VerifiedAccount, issue_session};
+    use crate::{
+        accounts::{self, Change, NewPassword},
+        error::ApiError,
+        model::Account,
+    };
+    use sqlx::PgPool;
+
+    async fn verified_account(pool: &PgPool) -> anyhow::Result<VerifiedAccount> {
+        let account = sqlx::query_as::<_, Account>(
+            "INSERT INTO accounts (email, name, role, password_hash)
+             VALUES ('student@example.test', 'Student', 'student', $1) RETURNING id, name, role",
+        )
+        .bind(crate::auth::hash_password("fictional password")?)
+        .fetch_one(pool)
+        .await?;
+        Ok(VerifiedAccount {
+            account,
+            auth_version: 0,
+        })
+    }
+
+    #[sqlx::test]
+    #[ignore = "requires an isolated PostgreSQL test server"]
+    async fn refuses_session_issuance_for_a_password_verified_before_reset(
+        pool: PgPool,
+    ) -> anyhow::Result<()> {
+        let verified = verified_account(&pool).await?;
+        let replacement = NewPassword::parse("replacement password".to_owned())?;
+        accounts::update(
+            &pool,
+            "student@example.test",
+            Change::Password(&replacement),
+        )
+        .await?;
+
+        let result = issue_session(&pool, verified).await;
+
+        assert!(matches!(result, Err(ApiError::Unauthorized)));
+        let count = sqlx::query_scalar::<_, i64>("SELECT count(*) FROM sessions")
+            .fetch_one(&pool)
+            .await?;
+        assert_eq!(count, 0);
+        Ok(())
+    }
+
+    #[sqlx::test]
+    #[ignore = "requires an isolated PostgreSQL test server"]
+    async fn refuses_pre_disable_sign_in_even_after_the_account_is_reenabled(
+        pool: PgPool,
+    ) -> anyhow::Result<()> {
+        let verified = verified_account(&pool).await?;
+        accounts::update(&pool, "student@example.test", Change::Disabled(true)).await?;
+        accounts::update(&pool, "student@example.test", Change::Disabled(false)).await?;
+
+        let result = issue_session(&pool, verified).await;
+
+        assert!(matches!(result, Err(ApiError::Unauthorized)));
+        Ok(())
+    }
+
+    #[sqlx::test]
+    #[ignore = "requires an isolated PostgreSQL test server"]
+    async fn a_simultaneous_disable_prevents_any_issued_session_from_remaining_valid(
+        pool: PgPool,
+    ) -> anyhow::Result<()> {
+        let verified = verified_account(&pool).await?;
+
+        let (issued, disabled) = tokio::join!(
+            issue_session(&pool, verified),
+            accounts::update(&pool, "student@example.test", Change::Disabled(true)),
+        );
+
+        disabled?;
+        match issued {
+            Ok(_) | Err(ApiError::Unauthorized) => {}
+            Err(error) => return Err(error.into()),
+        }
+        let count = sqlx::query_scalar::<_, i64>("SELECT count(*) FROM sessions")
+            .fetch_one(&pool)
+            .await?;
+        assert_eq!(count, 0);
+        Ok(())
+    }
 }

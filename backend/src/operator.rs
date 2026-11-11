@@ -4,6 +4,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
+    accounts::{self, Change, NewPassword},
     auth,
     error::{bounded, email},
     model::Role,
@@ -18,6 +19,12 @@ pub(crate) enum Command {
         email: String,
         name: String,
     },
+    /// Replace a password interactively and revoke every session for the account.
+    ResetPassword { email: String },
+    /// Block sign-in and revoke every session while retaining classroom records.
+    DisableAccount { email: String },
+    /// Restore sign-in eligibility. The account must sign in again.
+    EnableAccount { email: String },
     /// Add a lab seat to an existing class enrollment.
     AssignSeat {
         class_id: Uuid,
@@ -39,18 +46,26 @@ pub(crate) async fn run(command: Command, pool: &PgPool) -> Result<()> {
         } => {
             let address = email(&address)?;
             let name = bounded(&name, 100)?;
-            let password = rpassword::prompt_password("New password (at least 12 characters): ")?;
-            if password.chars().count() < 12 || password.len() > 256 {
-                bail!("password must have at least 12 characters and at most 256 bytes");
-            }
-            if password != rpassword::prompt_password("Confirm password: ")? {
-                bail!("passwords do not match");
-            }
+            let password = prompt_password()?;
             let id = sqlx::query_scalar::<_, Uuid>(
                 "INSERT INTO accounts (email, name, role, password_hash) VALUES ($1, $2, $3, $4) RETURNING id",
-            ).bind(address).bind(name).bind(role).bind(auth::hash_password(&password)?)
+            ).bind(address).bind(name).bind(role).bind(password.hash()?)
                 .fetch_one(pool).await.context("create account (email must be unique)")?;
             println!("Account ID: {id}");
+        }
+        Command::ResetPassword { email: address } => {
+            let address = email(&address)?;
+            let password = prompt_password()?;
+            let id = accounts::update(pool, &address, Change::Password(&password)).await?;
+            println!("Password replaced for account {id}. All sessions revoked.");
+        }
+        Command::DisableAccount { email: address } => {
+            let id = accounts::update(pool, &address, Change::Disabled(true)).await?;
+            println!("Account {id} disabled. All sessions revoked.");
+        }
+        Command::EnableAccount { email: address } => {
+            let id = accounts::update(pool, &address, Change::Disabled(false)).await?;
+            println!("Account {id} enabled. A new sign-in is required.");
         }
         Command::AssignSeat {
             class_id,
@@ -77,6 +92,14 @@ pub(crate) async fn run(command: Command, pool: &PgPool) -> Result<()> {
         Command::Veyon(_) => bail!("Veyon must run on the teacher workstation"),
     }
     Ok(())
+}
+
+fn prompt_password() -> Result<NewPassword> {
+    let password = rpassword::prompt_password("New password (at least 12 characters): ")?;
+    if password != rpassword::prompt_password("Confirm password: ")? {
+        bail!("passwords do not match");
+    }
+    NewPassword::parse(password)
 }
 
 async fn demo(pool: &PgPool) -> Result<()> {

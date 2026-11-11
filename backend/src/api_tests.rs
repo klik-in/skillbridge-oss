@@ -12,6 +12,9 @@ use uuid::Uuid;
 
 use crate::{App, auth, model::Role, router};
 
+#[path = "account_tests.rs"]
+mod account_tests;
+
 const TEACHER: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const STUDENT: &str = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 const PEER: &str = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
@@ -104,6 +107,50 @@ async fn data(response: Response) -> anyhow::Result<Value> {
     Ok(serde_json::from_slice(
         &to_bytes(response.into_body(), 1024 * 1024).await?,
     )?)
+}
+
+#[sqlx::test]
+#[ignore = "requires an isolated PostgreSQL test server"]
+async fn rejects_login_when_the_account_is_disabled(pool: PgPool) -> anyhow::Result<()> {
+    let Fixture { app, .. } = fixture(&pool, false).await?;
+    sqlx::query("UPDATE accounts SET disabled = true WHERE email = 'student@example.test'")
+        .execute(&pool)
+        .await?;
+
+    let response = request(
+        &app,
+        Method::POST,
+        "/api/session",
+        None,
+        json!({"email": "student@example.test", "password": PASSWORD}),
+    )
+    .await?;
+
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    Ok(())
+}
+
+#[sqlx::test]
+#[ignore = "requires an isolated PostgreSQL test server"]
+async fn rejects_existing_sessions_when_the_account_is_disabled(
+    pool: PgPool,
+) -> anyhow::Result<()> {
+    let Fixture { app, .. } = fixture(&pool, false).await?;
+    sqlx::query("UPDATE accounts SET disabled = true WHERE email = 'student@example.test'")
+        .execute(&pool)
+        .await?;
+
+    let response = request(
+        &app,
+        Method::GET,
+        "/api/classes",
+        Some(STUDENT),
+        Value::Null,
+    )
+    .await?;
+
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    Ok(())
 }
 
 #[sqlx::test]

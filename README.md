@@ -33,6 +33,18 @@ docker compose down
 
 Gunakan alamat email berbeda jika akun demo sudah dibuat. `docker compose down` menyimpan volume PostgreSQL. Hanya port web pada komputer lokal yang dipublikasikan. Untuk pengembangan dan pengujian di luar Compose, lihat [CONTRIBUTING](CONTRIBUTING.md).
 
+## Pengelolaan akun
+
+Pengelola yang memiliki akses ke server dapat mereset kata sandi atau mengubah status akun. Verifikasi identitas pemilik akun sebelum melakukan reset. Kata sandi baru dimasukkan dua kali melalui prompt tersembunyi.
+
+```sh
+docker compose run --rm api reset-password siswa@example.test
+docker compose run --rm api disable-account siswa@example.test
+docker compose run --rm api enable-account siswa@example.test
+```
+
+Setiap perintah mencabut seluruh sesi akun tersebut. Penonaktifan memblokir login dan menyimpan data kelas serta percakapan. Setelah diaktifkan kembali, pemilik akun harus login ulang. Reset kata sandi mempertahankan status aktif atau nonaktif akun. Setiap perubahan ini juga membatalkan izin Veyon siswa yang belum digunakan. Sesi Veyon yang sudah dibuka dihentikan melalui jendela Veyon.
+
 ## Dokumentasi
 
 - [Arsitektur, peran dan batas akses](docs/architecture.md)

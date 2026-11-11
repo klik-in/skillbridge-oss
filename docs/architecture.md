@@ -21,6 +21,7 @@ The Rust backend owns authorization and persistence. Nginx serves the React and 
 | Operation | Who has access |
 | --- | --- |
 | Provision accounts, assign physical lab seats | Operator with local CLI and database access |
+| Reset passwords, disable or enable accounts | Operator with local CLI and database access |
 | Create classes, enroll existing students | Instructor who owns the class |
 | Read class instructions | Owning instructor and enrolled students |
 | Open a help request | Enrolled student, for their own account |
@@ -29,6 +30,10 @@ The Rust backend owns authorization and persistence. Nginx serves the React and 
 | Consume a remote-control opt-in | Owning instructor, before expiry, for the bound ticket and seat only |
 
 The backend checks object ownership, including for direct calls with a guessed UUID. A PostgreSQL row lock serializes replies, closing and remote consent claims. Closed threads remain readable to both participants. The UI shows up to 100 requests per class, open first and newest within each state, and the most recent 200 replies per thread. The database retains earlier records. The UI refreshes active data every five seconds.
+
+Account changes advance an authentication version, revoke all of the account's sessions and expire that student's unused remote consent in a single transaction. Login verifies the password outside a database transaction, then locks and checks the current account version before issuing a session. This serializes session issuance with operator changes. Disabled accounts are rejected at sign-in and at session lookup. Requests already authorized before a change can finish. Classroom and message history stays associated with the account.
+
+Migration `0002_account_lifecycle.sql` adds active status and version defaults for existing accounts. Existing sessions continue to work for active accounts until expiry, logout or an operator change. The operator CLI supplies recovery after the operator verifies the account holder's identity. Email-based self-service recovery remains future work.
 
 ## API at a glance
 
@@ -49,6 +54,6 @@ All paths are under `/api`. Send JSON for payloads and `Authorization: Bearer <t
 
 ## Before a school pilot
 
-Use an HTTPS deployment, an edge sign-in rate limit and a least-privilege PostgreSQL runtime role with a separate migration operator. Establish account recovery, deprovisioning, enrollment removal, backups with a restore test, data retention and deletion, and operator access controls. Review remote audit retention and incident handling. Validate keyboard and assistive-technology workflows with the people who will use the lab.
+Use an HTTPS deployment, an edge sign-in rate limit and a least-privilege PostgreSQL runtime role with a separate migration operator. Establish an identity-verification procedure for operator-assisted account recovery and disabling, enrollment removal, backups with a restore test, data retention and deletion, and operator access controls. Review remote audit retention and incident handling. Validate keyboard and assistive-technology workflows with the people who will use the lab.
 
 This foundation stores names, email addresses, enrollment, messages and remote consent metadata. Pilot with synthetic data while deciding which information the school needs, who may access it, when it is deleted and how students can report a concern. The app has no multi-school tenant boundary yet.
