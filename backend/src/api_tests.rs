@@ -15,6 +15,9 @@ use crate::{App, auth, model::Role, router};
 #[path = "account_tests.rs"]
 mod account_tests;
 
+#[path = "practice_tests.rs"]
+mod practice_tests;
+
 const TEACHER: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const STUDENT: &str = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 const PEER: &str = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";

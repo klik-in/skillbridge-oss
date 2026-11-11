@@ -2,11 +2,12 @@
 
 Bahasa Indonesia · [English](README.en.md)
 
-SkillBridge OSS adalah fondasi aplikasi mandiri untuk kelas praktik vokasi. Guru membagikan arahan praktik dan mendaftarkan siswa. Siswa dapat meminta bantuan dan bertukar balasan teks dengan guru kelas di utas pribadi. Tampilan memperbarui data setiap lima detik.
+SkillBridge OSS adalah fondasi aplikasi mandiri untuk kelas praktik vokasi. Guru membagikan arahan dan tugas, mendaftarkan siswa, serta menilai hasil berdasarkan rubrik kompetensi. Siswa dapat mengumpulkan hasil, mengirim revisi setelah menerima umpan balik, dan bertukar balasan dengan guru melalui tiket bantuan pribadi. Tampilan memperbarui data setiap lima detik.
 
 | Cakupan | Status |
 | --- | --- |
 | Akun, arahan kelas, pendaftaran siswa, tiket bantuan dan balasan | Dapat dijalankan untuk pengembangan dan evaluasi lokal |
+| Tugas praktik, kiriman hasil, rubrik, umpan balik dan revisi | Dapat dijalankan dengan riwayat setiap versi kiriman |
 | Veyon | Adapter opsional pada komputer guru. Nonaktif secara bawaan. Lihat [panduan lab](docs/veyon.md). |
 | SkillPassport, portofolio hasil asesmen dan kredensial digital | [Usulan desain](docs/skillpassport.md) |
 
@@ -32,6 +33,14 @@ docker compose down
 ```
 
 Gunakan alamat email berbeda jika akun demo sudah dibuat. `docker compose down` menyimpan volume PostgreSQL. Hanya port web pada komputer lokal yang dipublikasikan. Untuk pengembangan dan pengujian di luar Compose, lihat [CONTRIBUTING](CONTRIBUTING.md).
+
+## Alur tugas praktik
+
+Guru membuka kelas dan memilih **Buat tugas praktik**. Isi judul, instruksi, tenggat opsional, serta 1–5 kompetensi dengan total maksimum 100 poin. Rubrik tersimpan bersama tugas saat diterbitkan.
+
+Siswa membuka tugas, menulis jawaban atau catatan hasil, dan dapat menyertakan tautan HTTPS. Setelah hasil dikumpulkan, guru memberi nilai setiap kompetensi, menulis umpan balik, lalu memilih **Perlu revisi** atau **Diterima**. Siswa dapat mengirim versi baru saat revisi diminta. Setiap versi beserta penilaiannya tetap tersimpan. Kiriman lewat tenggat diberi label terlambat dan tetap dapat dinilai.
+
+Siswa hanya dapat melihat kiriman dan penilaiannya sendiri. Guru pemilik kelas dapat menilai kiriman siswa di kelas tersebut. Tautan hasil dibuka oleh pengguna melalui browser.
 
 ## Pengelolaan akun
 

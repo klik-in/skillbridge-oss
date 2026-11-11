@@ -2,6 +2,8 @@
 
 **Status** · Design only. Credential issuance, verification, graduation checks and portfolio publishing are future work.
 
+The current classroom module stores fixed task rubrics, student submission attempts, per-criterion scores and teacher feedback. These records can inform a future portfolio and issuer workflow. Institutional approval, signed credentials and external verification are still part of this proposal.
+
 The goal is a student-controlled record of demonstrated skills that can be shared after leaving school. The record should identify the issuing institution, the competency assessed, the criteria used and the credential's status. Each verifier decides whether it trusts the issuer or recognizes the competency.
 
 ## Proposed records and workflow

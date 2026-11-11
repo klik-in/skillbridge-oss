@@ -12,6 +12,11 @@
   --radius: 1rem;
   --space: clamp(1rem, 3vw, 2rem);
   --shadow: 0 12px 30px #18362a0b;
+  --warning-ink: #7a4610;
+  --warning-wash: #fff1d6;
+  --practice-gap: 1rem;
+  --practice-inset: .75rem;
+  --practice-small-gap: .5rem;
 }
 * { box-sizing: border-box; }
 body { margin: 0; line-height: 1.55; }
@@ -135,8 +140,25 @@ details :where(form, p, dl) { margin-top: .6rem; }
 .messages li > div { display: flex; gap: .45rem 1rem; flex-wrap: wrap; justify-content: space-between; }
 .messages time { font-size: .78rem; color: var(--muted); }
 .reply-tools { display: grid; gap: .75rem; }
+.practice-module, .assignment-detail, .submission-card, .assessment-result { display: grid; gap: var(--practice-gap); }
+.practice-module > :where(p, form, ol, details) { margin-top: 0; }
+.practice-module h4 { margin: 0; font-size: 1.125rem; overflow-wrap: anywhere; }
+.rubric-fields { min-width: 0; border: 1px solid var(--line); border-radius: .55rem; padding: var(--practice-inset); display: grid; gap: var(--practice-gap); }
+.rubric-fields legend { font-weight: 700; }
+.rubric-row { display: grid; grid-template-columns: minmax(0, 1fr) 9rem; gap: var(--practice-small-gap); }
+.rubric-summary { padding: var(--practice-inset); background: var(--wash); border-radius: .55rem; }
+.rubric-summary ul, .assessment-result ul { margin: var(--practice-small-gap) 0 0; padding-left: var(--practice-gap); }
+.submission-card { border: 1px solid var(--line); border-radius: .65rem; padding: var(--practice-inset); }
+.submission-card .section-heading { flex-wrap: wrap; }
+.submission-card a { color: var(--accent-dark); overflow-wrap: anywhere; }
+.submission-card .metadata { display: flex; flex-wrap: wrap; align-items: center; gap: var(--practice-small-gap); }
+.status.pending { background: var(--line); color: var(--muted); }
+.status.revision_requested, .status.late { background: var(--warning-wash); color: var(--warning-ink); }
+.status.accepted { background: var(--wash); color: var(--accent-dark); }
+select { width: 100%; font: inherit; color: inherit; background: var(--paper); border: 1px solid var(--line); border-radius: .55rem; padding: var(--practice-inset); }
 @media (max-width: 820px) {
   .class-grid { grid-template-columns: 1fr; }
+  .rubric-row { grid-template-columns: 1fr; }
 }
 @media (max-width: 630px) {
   .sign-in, .workspace { grid-template-columns: 1fr; }

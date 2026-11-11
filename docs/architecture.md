@@ -28,6 +28,10 @@ The Rust backend owns authorization and persistence. Nginx serves the React and 
 | Read or reply in a help thread | Requesting student and owning instructor |
 | Close a help request | Requesting student or owning instructor |
 | Consume a remote-control opt-in | Owning instructor, before expiry, for the bound ticket and seat only |
+| Publish a practice task and rubric | Owning instructor |
+| Read tasks and submit work | Enrolled student, submitting for their own account |
+| Read submissions and assessments | Submitting student and owning instructor |
+| Assess a submission | Owning instructor, for the latest unreviewed attempt |
 
 The backend checks object ownership, including for direct calls with a guessed UUID. A PostgreSQL row lock serializes replies, closing and remote consent claims. Closed threads remain readable to both participants. The UI shows up to 100 requests per class, open first and newest within each state, and the most recent 200 replies per thread. The database retains earlier records. The UI refreshes active data every five seconds.
 
@@ -51,6 +55,20 @@ All paths are under `/api`. Send JSON for payloads and `Authorization: Bearer <t
 | GET, POST /help/{id}/messages | Read the thread or post a reply |
 | POST /help/{id}/close | Close the thread |
 | POST /help/{id}/remote | Consume unexpired consent for the supplied seat ID |
+| GET, POST /classes/{id}/assignments | List tasks or publish a task with its fixed rubric |
+| GET /assignments/{id} | Read the task and authorized submission history |
+| POST /assignments/{id}/submissions | Submit an initial answer or a requested revision |
+| POST /submissions/{id}/review | Score the latest unreviewed attempt and provide feedback |
+
+## Practice records and assessment
+
+Migration `0003_practice_assignments.sql` adds assignments, immutable submission attempts and one assessment per attempt. Rubrics have 1–5 distinct criterion labels, each worth 1–100 points, with a total of at most 100. Each assessment supplies one integer score per criterion, within that criterion's bounds, and requires written feedback. The teacher explicitly accepts the work or requests revision. Acceptance records that classroom decision.
+
+The API locks the student's enrollment row while accepting submissions or reviews. A new attempt requires a revision request on the previous attempt. A review targets a specific submission ID and is rejected if that submission has already been reviewed or superseded. Competing writes return a conflict and preserve the stored version. Earlier attempts and assessments remain readable.
+
+The task list shows the newest 100 tasks per class. Task detail shows the newest 200 submissions visible to the current account. Larger histories need pagination in a later iteration. Deadlines are optional UTC instants displayed in the viewer's local time. The server records submission time and labels late attempts without blocking them.
+
+Written answers are limited to 6000 characters, instructions to 4000, feedback to 2000, and result links to 2048. The API and Nginx accept request bodies up to 64 KiB to support these limits with Unicode text. Result links require HTTPS without embedded credentials. The server stores the URL and never fetches its content. The browser displays the destination and uses noopener and noreferrer when opening it. File uploads and credential issuance remain future work.
 
 ## Before a school pilot
 

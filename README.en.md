@@ -2,11 +2,12 @@
 
 [Bahasa Indonesia](README.md) · English
 
-SkillBridge OSS is an early, self-hosted workspace for hands-on vocational classes. Teachers share practice instructions and enroll students. Students can open help requests, and each student and the class teacher can reply in a private thread. The interface refreshes every five seconds.
+SkillBridge OSS is an early, self-hosted workspace for hands-on vocational classes. Teachers publish instructions and tasks, enroll students, and assess work against competency rubrics. Students submit results, revise work after feedback, and exchange replies with their class teacher in private help threads. The interface refreshes every five seconds.
 
 | Scope | Status |
 | --- | --- |
 | Accounts, class instructions, enrollment, help requests and replies | Implemented for local development and evaluation |
+| Practice tasks, submissions, rubrics, feedback and revisions | Implemented with a history of each submission attempt |
 | Veyon | Optional teacher-workstation adapter for a separately installed Veyon. Off by default. See the [lab guide](docs/veyon.md). |
 | SkillPassport, assessed portfolios and digital credentials | [Design proposal](docs/skillpassport.md) |
 
@@ -32,6 +33,14 @@ docker compose down
 ```
 
 `docker compose down` preserves the PostgreSQL volume. The only published port is the local web UI. For native development and tests, see [CONTRIBUTING](CONTRIBUTING.md).
+
+## Practice workflow
+
+The teacher opens a class and selects **Buat tugas praktik**. Enter a title, instructions, an optional deadline, and 1–5 rubric criteria totaling at most 100 points. The rubric is fixed when the task is published.
+
+Students open the task, submit a written answer or explanation, and may include an HTTPS result link. The teacher scores each criterion, writes feedback, and selects **Perlu revisi** (revision requested) or **Diterima** (accepted). A revision request permits another submission attempt. Earlier attempts and assessments remain stored. Late submissions are marked and remain eligible for review.
+
+Students see their own submissions and assessments. The class owner can assess students in that class. Users open result links in their browser.
 
 ## Account management
 

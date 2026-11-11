@@ -1,45 +1,20 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import * as z from "zod/mini";
 import {
-  ApiError, classSchema, classroomSchema, createdSchema, errorText,
+  ApiError, classSchema, classroomSchema, createdSchema,
   messageSchema, read, sessionSchema, ticketSchema, write,
 } from "./api";
-import type { Classroom, Decoder, Session, Ticket } from "./api";
+import type { Classroom, Session, Ticket } from "./api";
 import { ActionForm, Notice, field } from "./forms";
+import { Practice } from "./practice";
+import { useResource } from "./resource";
 import "./style.css";
 
 const classesSchema = z.array(classSchema);
 const ticketsSchema = z.array(ticketSchema);
 const messagesSchema = z.array(messageSchema);
 const time = new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short" });
-
-type Load<T> = Readonly<{ data: T | null; error: string | null }>;
-
-function useResource<T>(path: string, schema: Decoder<T>, token: string, revision: number, poll = false): Load<T> {
-  const [resource, setResource] = useState<Load<T>>({ data: null, error: null });
-  useEffect(() => {
-    const controller = new AbortController();
-    let timer: number | undefined;
-
-    async function refresh() {
-      try {
-        const data = await read(path, schema, { token, signal: controller.signal });
-        if (!controller.signal.aborted) setResource({ data, error: null });
-      } catch (error) {
-        if (!controller.signal.aborted) setResource({ data: null, error: errorText(error) });
-      }
-      if (poll && !controller.signal.aborted) timer = window.setTimeout(refresh, 5000);
-    }
-
-    void refresh();
-    return () => {
-      controller.abort();
-      window.clearTimeout(timer);
-    };
-  }, [path, schema, token, revision, poll]);
-  return resource;
-}
 
 function Brand() {
   return (
@@ -209,6 +184,7 @@ function ClassPanel({ classId, session }: Readonly<{ classId: string; session: S
               </ul>
             </section>
           </div>
+          <Practice classId={classId} session={session} />
           {active && <Conversation key={active.id} ticket={active} session={session} onClosed={refresh} />}
         </>
       )}

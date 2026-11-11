@@ -5,6 +5,7 @@ mod error;
 mod help;
 mod model;
 mod operator;
+mod practice;
 mod veyon;
 
 #[cfg(test)]
@@ -100,11 +101,18 @@ fn router(app: App) -> Router {
                 .route("/classes", get(classroom::list).post(classroom::create))
                 .route("/classes/{id}", get(classroom::detail))
                 .route("/classes/{id}/enrollments", post(classroom::enroll))
+                .route(
+                    "/classes/{id}/assignments",
+                    get(practice::list).post(practice::create),
+                )
+                .route("/assignments/{id}", get(practice::detail))
+                .route("/assignments/{id}/submissions", post(practice::submit))
+                .route("/submissions/{id}/review", post(practice::assess))
                 .route("/classes/{id}/help", get(help::list).post(help::create))
                 .route("/help/{id}/messages", get(help::messages).post(help::reply))
                 .route("/help/{id}/close", post(help::close))
                 .route("/help/{id}/remote", post(help::claim))
-                .layer(DefaultBodyLimit::max(16 * 1024))
+                .layer(DefaultBodyLimit::max(64 * 1024))
                 .layer(from_fn(no_cache)),
         )
         .with_state(app)
